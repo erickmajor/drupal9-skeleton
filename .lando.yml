@@ -1,0 +1,110 @@
+name: drupal
+recipe: drupal9
+config:
+  php: 8.1
+  composer_version: 2.3.5
+  via: apache
+  webroot: docroot
+  drush: "*"
+  drupal: true
+  ssl: true
+  database: mariadb:10.6
+  xdebug: true
+  config:
+    php: "/app/config/php.ini"
+services:
+  pma:
+    type: phpmyadmin
+    hosts:
+      - database
+  database:
+    type: mariadb:10.6.7
+    portfoward: true
+    creds:
+      database: 'drupal'
+      password: 'drupal'
+      user: 'drupal'
+  appserver:
+    scanner: false
+    overrides:
+      environment:
+        PHP_IDE_CONFIG: "serverName=appserver"
+        XDEBUG_MODE: "debug"
+        SIMPLETEST_DB: mysql://drupal:drupal@database/drupal#test
+    build_as_root:
+      - a2enmod headers
+      - curl -sL https://deb.nodesource.com/setup_16.x | bash -
+      - curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add -
+      - echo "deb https://dl.yarnpkg.com/debian/ stable main" | tee /etc/apt/sources.list.d/yarn.list
+      - apt update
+      - apt install -y apt-transport-https
+      # - apt update && apt install -y imagemagick
+      # - docker-php-ext-install sysvsem && docker-php-ext-enable sysvsem
+      # - sed -i 'disable ghostscript format types/,+6d' /etc/ImagiMagick-6/policy.xml
+      - apt install -y nodejs
+      - apt install -y yarn
+      - service apache2 reload
+    build:
+      - "mkdir -p config debug"
+      - "touch /app/config/php.ini"
+      - "touch /app/debug/xdebug.log"
+      - "composer install"
+      - "/app/vendor/bin/phpcs --config-set installed_paths /app/vendor/drupal/coder/coder_sniffer"
+  mailhog:
+    type: mailhog
+    hogfrom:
+      - appserver
+  memcached:
+    type: memcached
+    portfoward: true
+    run:
+      - /bin/sh -c '/opt/bitnami/memcached/bin/memcached start -d'
+tooling:
+  drush-debug:
+    env:
+      XDEBUG_MODE: "coverage, debug"
+    cmd: "php -dxdebug.mode=coverage,debug -dxdebug.start_with_request=1 /app/vendor/drush/drush/drush --root=/app/docroot"
+    service: appserver
+  drush:
+    cmd: "/app/vendor/bin/drush --root=/app/docroot"
+    service: appserver
+  drupal:
+    cmd: "/app/vendor/bin/drupal --root=/app/docroot"
+    service: appserver
+  composer:
+    cmd: "/usr/local/bin/composer --working-dir=/app"
+    service: appserver
+  npm:
+    cmd: "/usr/bin/npm"
+    service: appserver
+  phpcs:
+    cmd: "/app/vendor/bin/phpcs -s --colors --standard=Drupal,DrupalPractice --extensions=php,module,inc,install,test,orifuke,theme,info,txt,md --ignore=\\.jpg,\\.jpeg,\\.png,\\.gif"
+    service: appserver
+    description: Run phpcs for project, for giver folder or file.
+  phpcbf:
+    cmd: "/app/vendor/bin/phpcbf --standard=Drupal,DrupalPractice --extensions=php,module,inc,install,test,orifuke,theme,info,txt,md --ignore=\\.jpg,\\.jpeg,\\.png,\\.gif"
+    service: appserver
+    description: Run phpcbf for project, for giver folder or file.
+  phpunit:
+    env:
+      XDEBUG_MODE: "coverage,debug"
+    cmd: "php -dxdebug.mode=coverage,debug -dxdebug.start_with_request=1 /app/vendor/bin/phpunit"
+    service: appserver
+    description: Run phpunit for project, giver folder or file.
+  install:
+    cmd:
+      - "composer install"
+      - "drush -y si standard --locale=en --db-url=mysql://drupal:drupal@database:3306/drupal --site-name='Drupal' --site-mail='admin@example.com' --account-name='admin' --account-pass='admin' --account-mail='admin@example.com'"
+      - "drush -y config-set system.theme default seven"
+      - "drush -y config-set system.performance css.preprocess 0"
+      - "drush -y config-set system.performance js.preprocess 0"
+      - "drush cr"
+    service: appserver
+    description: Install a basic application.
+proxy:
+  mailhog:
+    - mailhog.pga-drupal.lndo.site
+  appserver:
+    - drupal.lndo.site
+  pma:
+    - pma.drupal.lndo.site
