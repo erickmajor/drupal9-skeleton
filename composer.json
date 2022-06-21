@@ -39,6 +39,7 @@
         "drupal/drupal-extension": "~4.0",
         "emuse/behat-html-formatter": "^0.2.0",
         "kint-php/kint": "^3.3",
+        "mglaman/phpstan-drupal": "^1.1",
         "phpspec/prophecy-phpunit": "^2",
         "squizlabs/php_codesniffer": "*"
     },

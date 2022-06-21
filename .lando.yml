@@ -88,7 +88,7 @@ tooling:
   phpunit:
     env:
       XDEBUG_MODE: "coverage,debug"
-    cmd: "php -dxdebug.mode=coverage,debug -dxdebug.start_with_request=1 /app/vendor/bin/phpunit"
+    cmd: "php -dxdebug.mode=coverage,debug -dxdebug.start_with_request=1 /app/vendor/bin/phpunit --configuration=/app/phpunit.xml"
     service: appserver
     description: Run phpunit for project, giver folder or file.
   install:
